@@ -61,6 +61,9 @@ class NaturalStrategyMultiObjective(object):
         self.parentonly_alive_out = 0
         self.parentonly_alive_in = 0
 
+        #進化パス
+        self.evolpath = numpy.zeros(self.dim)
+
         self.indicator = params.get("indicator", tools.hypervolume)
 
     def generate(self, ind_init):
@@ -134,14 +137,8 @@ class NaturalStrategyMultiObjective(object):
                     pop[front[0]._ps[1]].paretoRank = i + 1
                     pop[front[0]._ps[1]].contr = 0
                 else:
-                    if front[0]._ps[1]==self.parents[-1]._ps[1]:
-                        print(front[0]._ps[1])
-                        print(i)
-                        print(self.parents[front[0]._ps[1]].paretoRank)
                     self.parents[front[0]._ps[1]].Rank += 1
                     self.parents[front[0]._ps[1]].paretoRank = i + 1
-                    if front[0]._ps[1]==self.parents[-1]._ps[1]:
-                        print(self.parents[front[0]._ps[1]].paretoRank)
                     self.parents[front[0]._ps[1]].contr = 0
             else:
                 for m in range(0,len(front)):
@@ -166,13 +163,7 @@ class NaturalStrategyMultiObjective(object):
                         pop[front[m]._ps[1]].paretoRank = i + 1
                     else:
                         self.parents[front[m]._ps[1]].Rank += m+1
-                        if front[m]._ps[1] == self.parents[-1]._ps[1]:
-                            print(front[m]._ps[1])
-                            print(self.parents[front[m]._ps[1]].paretoRank)
                         self.parents[front[m]._ps[1]].paretoRank = i + 1
-                        if front[m]._ps[1] == self.parents[-1]._ps[1]:
-                            print(i)
-                            print(self.parents[front[m]._ps[1]].paretoRank)
         chosen = list()
         mid_front = None
         not_chosen = list()
@@ -241,6 +232,8 @@ class NaturalStrategyMultiObjective(object):
             else:
                 if numpy.sum(population[-1].valConstr[1:]) < numpy.sum(self.parents[-1].valConstr[1:]):
                     count8 += 1
+                self.evolpath = (1-2/(self.dim+2))*self.evolpath
+                chosen[population[-1].Rank - 1] = self.pullupdate(population[-1],LOWBOUNDS,UPBOUNDS,evalfunc)
             if gsigma > 0 :
                 count1+=1
             else:count2 += 1
@@ -261,6 +254,7 @@ class NaturalStrategyMultiObjective(object):
         else:
             print(str(population[-1].Rank)+" and parent achieved "+str(self.parents[-1].Rank))
 
+        print(self.evolpath)
         self.dominating_Success = count7
         self.success_outer = count1
         self.success = count2
@@ -311,4 +305,36 @@ class NaturalStrategyMultiObjective(object):
                 alpha = alpha * 0.5
             if dominate and notdominate:
                 break
+        self.evolpath=(1-2/(self.dim+2))*self.evolpath+numpy.sqrt(2/(self.dim+2)*(2-2/(self.dim+2)))* ((thisgnm-parentgnm) / current.sigma)
+        C = numpy.dot(current.A,current.A.T)
+        C = (1-2/(numpy.power(self.dim,2)+6))* C + (2/(numpy.power(self.dim,2)+6))*numpy.dot(self.evolpath,self.evolpath.T)
+        current.A = numpy.linalg.cholesky(C)
+        current.A = current.A / numpy.linalg.det(current.A)
+        return current
+
+    def pullupdate(self,this,LOW,UP,evals):
+        if numpy.linalg.norm(self.evolpath) < 1e-32:
+            return this
+        direction = self.evolpath / numpy.linalg.norm(self.evolpath)
+        current = copy.deepcopy(this)
+        dominate = False
+        notdominate = False
+        alpha = current.sigma
+        while True:
+            next = copy.deepcopy(current)
+            for i,_ in enumerate(next):
+                next[i] = next[i] + alpha * direction[i]
+            next.fitness.values = evals(LOW,UP,next)
+            if self.dominates(next,current):
+                dominate = True
+                current = next
+            else:
+                notdominate = True
+                alpha = alpha * 0.5
+            if dominate and notdominate:
+                break
+        C = numpy.dot(current.A,current.A.T)
+        C = (1-2/(numpy.power(self.dim,2)+6))* C + (2/(numpy.power(self.dim,2)+6))*(numpy.dot(self.evolpath,self.evolpath.T)+(2/(self.dim+2)*(2-2/(self.dim+2)))*C)
+        current.A = numpy.linalg.cholesky(C)
+        current.A = current.A / numpy.linalg.det(current.A)
         return current

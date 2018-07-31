@@ -193,11 +193,10 @@ def main():
         dcparent = sorted(dcparent,key=lambda x:x[0])
         C = numpy.dot(dcparent[-1].A, dcparent[-1].A.T)
         a, b = scipy.linalg.eigh(C)
-        d = b[:,-1]
         a = a.tolist()
-        d=d.tolist()
         Ases.append(a)
-        first_pc.append(d)
+        d = numpy.hstack((b[:,0],b[:,1]))
+        first_pc.append(d.tolist())
         genSigma = []
         genSigma.append(dcparent[-1].sigma)
         detA.append(scipy.linalg.det(dcparent[-1].A))
