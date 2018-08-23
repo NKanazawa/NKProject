@@ -33,7 +33,6 @@ from operator import attrgetter
 from deap import tools
 from deap.tools._hypervolume import pyhv
 import emo
-import problem
 
 class NaturalStrategyMultiObjective(object):
     def __init__(self, population, sigma, **params):
@@ -61,9 +60,6 @@ class NaturalStrategyMultiObjective(object):
         self.parentonly_alive_out = 0
         self.parentonly_alive_in = 0
 
-        #進化パス
-        self.evolpath = numpy.zeros(self.dim)
-
         self.indicator = params.get("indicator", tools.hypervolume)
 
     def generate(self, ind_init):
@@ -82,17 +78,17 @@ class NaturalStrategyMultiObjective(object):
         individuals = list()
 
         # Make sure every parent has a parent tag and index
-        self.parents=sorted(self.parents, key=lambda x: x[0])
         for i, p in enumerate(self.parents):
             p._ps = "p", i
             p.Rank = 0
 
-
+        self.parents=sorted(self.parents, key=lambda x: x[0])
         # Each parent produce an offspring
         for i in range(self.lambda_):
             # print "Z", list(arz[i])
-            if self.parents[-1].A is None:
-                self.parents[-1].A = numpy.identity(self.dim)
+            if self.parents[-1].dominateA is None:
+                self.parents[-1].dominateA = numpy.identity(self.dim)
+                self.parents[-1].indicatorA = numpy.identity(self.dim)
                 self.parents[-1].sigma = self.initSigmas
                 self.parents[-1].invA = numpy.identity(self.dim)
                 self.parents[-1].logdetA = 0
@@ -197,7 +193,7 @@ class NaturalStrategyMultiObjective(object):
 
 
 
-    def update(self, population,UPBOUNDS=None,LOWBOUNDS=None,evalfunc=None):
+    def update(self, population):
         """Update the current covariance matrix strategies from the
         *population*.
 
@@ -222,22 +218,17 @@ class NaturalStrategyMultiObjective(object):
             gm = numpy.outer(population[-1].theta, population[-1].theta) - numpy.identity(self.dim)
             gsigma = numpy.trace(gm) / self.dim
             ga = gm - gsigma * numpy.identity(self.dim)
+            if self.dominates(population[-1],self.parents[-1]):
+                count7 += 1
+            if numpy.sum(population[-1].valConstr[1:]) < numpy.sum(self.parents[-1].valConstr[1:]):
+                count8 += 1
+            if gsigma > 0 :
+                count1+=1
+            else:count2 += 1
             population[-1].sigma = population[-1].sigma * exp(self.etasigma * gsigma / 2.0)
             proc = 0.5 * (self.etaA * ga)
             GGA = scipy.linalg.expm(proc)
             population[-1].A = numpy.dot(population[-1].A, GGA)
-            if self.dominates(population[-1],self.parents[-1]):
-                count7 += 1
-                chosen[population[-1].Rank-1] = self.mupdate(population[-1], self.parents[-1],LOWBOUNDS,UPBOUNDS,evalfunc)
-            else:
-                if numpy.sum(population[-1].valConstr[1:]) < numpy.sum(self.parents[-1].valConstr[1:]):
-                    count8 += 1
-                self.evolpath = (1-2/(self.dim+2))*self.evolpath
-                chosen[population[-1].Rank - 1] = self.pullupdate(population[-1],LOWBOUNDS,UPBOUNDS,evalfunc)
-            if gsigma > 0 :
-                count1+=1
-            else:count2 += 1
-
         elif population[-1].Rank > self.parents[-1].Rank and population[-1].Rank <= self.mu:
             gm = numpy.outer(population[-1].theta, population[-1].theta) - numpy.identity(self.dim)
             gsimga = numpy.trace(gm) / self.dim
@@ -254,7 +245,6 @@ class NaturalStrategyMultiObjective(object):
         else:
             print(str(population[-1].Rank)+" and parent achieved "+str(self.parents[-1].Rank))
 
-        print(self.evolpath)
         self.dominating_Success = count7
         self.success_outer = count1
         self.success = count2
@@ -275,66 +265,9 @@ class NaturalStrategyMultiObjective(object):
                     every objectives.
         """
         not_equal = False
-        if other.isFeasible and not My.isFeasible:
-            return False
         for self_wvalue, other_wvalue in zip(My.fitness.wvalues[obj], other.fitness.wvalues[obj]):
             if self_wvalue > other_wvalue:
                 not_equal = True
             elif self_wvalue < other_wvalue:
                 return False
         return not_equal
-
-    def mupdate(self,this,parent,LOW,UP,evals):
-        thisgnm = numpy.array([this[i] for i in range(self.dim)])
-        parentgnm = numpy.array([parent[i] for i in range(self.dim)])
-        direction = (thisgnm-parentgnm) / numpy.linalg.norm(thisgnm-parentgnm)
-        current = copy.deepcopy(this)
-        dominate = False
-        notdominate = False
-        alpha = current.sigma
-        while True:
-            next = copy.deepcopy(current)
-            for i,_ in enumerate(next):
-                next[i] = next[i] + alpha * direction[i]
-            next.fitness.values = evals(LOW,UP,next)
-            if self.dominates(next,current):
-                dominate = True
-                current = next
-            else:
-                notdominate = True
-                alpha = alpha * 0.5
-            if dominate and notdominate:
-                break
-        self.evolpath=(1-2/(self.dim+2))*self.evolpath+numpy.sqrt(2/(self.dim+2)*(2-2/(self.dim+2)))* ((thisgnm-parentgnm) / current.sigma)
-        C = numpy.dot(current.A,current.A.T)
-        C = (1-2/(numpy.power(self.dim,2)+6))* C + (2/(numpy.power(self.dim,2)+6))*numpy.dot(self.evolpath,self.evolpath.T)
-        current.A = numpy.linalg.cholesky(C)
-        current.A = current.A / numpy.linalg.det(current.A)
-        return current
-
-    def pullupdate(self,this,LOW,UP,evals):
-        if numpy.linalg.norm(self.evolpath) < 1e-32:
-            return this
-        direction = self.evolpath / numpy.linalg.norm(self.evolpath)
-        current = copy.deepcopy(this)
-        dominate = False
-        notdominate = False
-        alpha = current.sigma
-        while True:
-            next = copy.deepcopy(current)
-            for i,_ in enumerate(next):
-                next[i] = next[i] + alpha * direction[i]
-            next.fitness.values = evals(LOW,UP,next)
-            if self.dominates(next,current):
-                dominate = True
-                current = next
-            else:
-                notdominate = True
-                alpha = alpha * 0.5
-            if dominate and notdominate:
-                break
-        C = numpy.dot(current.A,current.A.T)
-        C = (1-2/(numpy.power(self.dim,2)+6))* C + (2/(numpy.power(self.dim,2)+6))*(numpy.dot(self.evolpath,self.evolpath.T)+(2/(self.dim+2)*(2-2/(self.dim+2)))*C)
-        current.A = numpy.linalg.cholesky(C)
-        current.A = current.A / numpy.linalg.det(current.A)
-        return current

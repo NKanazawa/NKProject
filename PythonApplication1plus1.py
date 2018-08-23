@@ -17,7 +17,6 @@ from deap import algorithms
 from deap import base
 from deap import benchmarks
 from deap.benchmarks.tools import hypervolume
-import problem
 import cma
 import emo
 import copy
@@ -33,7 +32,7 @@ N=2
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
 creator.create("Individual", list, fitness=creator.FitnessMin, volViolation=0, valConstr=None, volOverBounds=0,
-               isFeasible=True, A=None, z=None, sigma=None, parent_genome=None, parent_obj=None,parent_c=None,paretoRank = 0)
+               isFeasible=True, dominateA=None,indicatorA=None, z=None, sigma=None, parent_genome=None, parent_obj=None,parent_c=None,paretoRank = 0)
 
 
 def zdt1(LOWBOUNDS,UPBOUNDS,ind):
@@ -107,9 +106,10 @@ def main():
     numpy.random.seed()
     LOWBOUNDS = numpy.zeros(N)
     UPBOUNDS = numpy.ones(N)
-    iniUPBOUNDS  = [0.1,1e-5]
+    iniLOWBOUNDS = [1e-1,1e-3]
+    iniUPBOUNDS  = [1e-1,1e-3]
     iniUPBOUNDS=numpy.array(iniUPBOUNDS)
-    MU, LAMBDA = 100, 1
+    MU, LAMBDA = 1, 1
 
     NGEN = 1000
     eval_log = numpy.empty((0,2) , float)
@@ -127,7 +127,7 @@ def main():
     first_pc=[]
 
     # The MO-CMA-ES algorithm takes a full population as argument
-    population = [creator.Individual(x) for x in (numpy.random.uniform(0, iniUPBOUNDS, (MU, N)))]
+    population = [creator.Individual(x) for x in (numpy.random.uniform(iniLOWBOUNDS, iniUPBOUNDS, (MU, N)))]
     fitnesses = toolbox.map(functools.partial(toolbox.evaluate,LOWBOUNDS,UPBOUNDS), population)
     for ind, fit in zip(population, fitnesses):
         ind.fitness.values = fit
