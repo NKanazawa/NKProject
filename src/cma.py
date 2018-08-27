@@ -62,7 +62,7 @@ class NaturalStrategyMultiObjective(object):
 
         self.indicator = params.get("indicator", tools.hypervolume)
 
-    def generate(self, ind_init):
+    def generate(self, ind_init,a):
         """Generate a population of :math:`\lambda` individuals of type
         *ind_init* from the current strategy.
 
@@ -86,26 +86,27 @@ class NaturalStrategyMultiObjective(object):
         # Each parent produce an offspring
         for i in range(self.lambda_):
             # print "Z", list(arz[i])
-            if self.parents[-1].dominateA is None:
-                self.parents[-1].dominateA = numpy.identity(self.dim)
-                self.parents[-1].indicatorA = numpy.identity(self.dim)
-                self.parents[-1].sigma = self.initSigmas
-                self.parents[-1].invA = numpy.identity(self.dim)
-                self.parents[-1].logdetA = 0
+            if self.parents[i].dominateA is None:
+                self.parents[i].dominateA = numpy.identity(self.dim)
+                self.parents[i].indicatorA = numpy.identity(self.dim)
+                self.parents[i].sigma = self.initSigmas
+                self.parents[i].invA = numpy.identity(self.dim)
+                self.parents[i].logdetA = 0
 
-            cparent = copy.deepcopy(self.parents[-1])
-            individuals.append(ind_init(cparent + cparent.sigma * numpy.dot(cparent.A, arz[-1])))
-            individuals[-1].theta = arz[-1]
-            individuals[-1]._ps = "o", i
-            individuals[-1].Rank = 0
-            individuals[-1].contr = 0
-            individuals[-1].A = cparent.A
-            individuals[-1].sigma = cparent.sigma
-            individuals[-1].parent_genome = []
-            individuals[-1].parent_c = cparent.parent_c
+            cparent = copy.deepcopy(self.parents[i])
+            individuals.append(ind_init(cparent + (1-a)*cparent.sigma * numpy.dot(cparent.indicatorA, arz[i])+a*cparent.sigma * numpy.dot(cparent.dominateA, arz[i])))
+            individuals[i].theta = arz[-1]
+            individuals[i]._ps = "o", i
+            individuals[i].Rank = 0
+            individuals[i].contr = 0
+            individuals[i].dominateA = cparent.dominateA
+            individuals[i].indicatorA = cparent.indicatorA
+            individuals[i].sigma = cparent.sigma
+            individuals[i].parent_genome = []
+            individuals[i].parent_c = cparent.parent_c
             for mat in cparent:
-                individuals[-1].parent_genome.append(mat)
-            individuals[-1].parent_obj = cparent.fitness.values
+                individuals[i].parent_genome.append(mat)
+            individuals[i].parent_obj = cparent.fitness.values
         return individuals
 
     def _select(self, pop):
@@ -148,7 +149,6 @@ class NaturalStrategyMultiObjective(object):
 
                 def calContribution(idx, wobj, ref):
                     return pyhv.hypervolume(numpy.concatenate((wobj[:idx], wobj[idx + 1:])), ref)
-
                 cont = list(map(functools.partial(calContribution,ref=refs,wobj=wobjs),list(range(len(front)))))
                 for m in range(0,len(front)):
                     front[m].contr = cont[m]
@@ -218,17 +218,19 @@ class NaturalStrategyMultiObjective(object):
             gm = numpy.outer(population[-1].theta, population[-1].theta) - numpy.identity(self.dim)
             gsigma = numpy.trace(gm) / self.dim
             ga = gm - gsigma * numpy.identity(self.dim)
-            if self.dominates(population[-1],self.parents[-1]):
-                count7 += 1
-            if numpy.sum(population[-1].valConstr[1:]) < numpy.sum(self.parents[-1].valConstr[1:]):
-                count8 += 1
-            if gsigma > 0 :
-                count1+=1
-            else:count2 += 1
             population[-1].sigma = population[-1].sigma * exp(self.etasigma * gsigma / 2.0)
             proc = 0.5 * (self.etaA * ga)
             GGA = scipy.linalg.expm(proc)
-            population[-1].A = numpy.dot(population[-1].A, GGA)
+            if gsigma > 0 :
+                count1+=1
+            else:count2 += 1
+            if self.dominates(population[-1],self.parents[-1]):
+                count7 += 1
+                population[-1].dominateA = numpy.dot(population[-1].dominateA, GGA)
+            else:population[-1].indicatorA = numpy.dot(population[-1].indicatorA, GGA)
+            if numpy.sum(population[-1].valConstr[1:]) < numpy.sum(self.parents[-1].valConstr[1:]):
+                count8 += 1
+
         elif population[-1].Rank > self.parents[-1].Rank and population[-1].Rank <= self.mu:
             gm = numpy.outer(population[-1].theta, population[-1].theta) - numpy.identity(self.dim)
             gsimga = numpy.trace(gm) / self.dim

@@ -106,12 +106,12 @@ def main():
     numpy.random.seed()
     LOWBOUNDS = numpy.zeros(N)
     UPBOUNDS = numpy.ones(N)
-    iniLOWBOUNDS = [1e-1,1e-3]
-    iniUPBOUNDS  = [1e-1,1e-3]
+    iniLOWBOUNDS = [1e-1,1e-2]
+    iniUPBOUNDS  = [1e-1,1e-2]
     iniUPBOUNDS=numpy.array(iniUPBOUNDS)
     MU, LAMBDA = 1, 1
 
-    NGEN = 1000
+    NGEN = 3000
     eval_log = numpy.empty((0,2) , float)
     verbose = True
     create_plot = True
@@ -121,10 +121,12 @@ def main():
     HVlog = []
     ref = [1.0, 1.0]
     sigmas = []
-    Ases = []
+    domiAses = []
+    indAses = []
     detA = []
     sucrate = []
-    first_pc=[]
+    indfirst_pc=[]
+    domifirst_pc=[]
 
     # The MO-CMA-ES algorithm takes a full population as argument
     population = [creator.Individual(x) for x in (numpy.random.uniform(iniLOWBOUNDS, iniUPBOUNDS, (MU, N)))]
@@ -166,7 +168,9 @@ def main():
     logbook.header = ["gen", "nevals"] + (stats.fields if stats else [])
     for gen in range(NGEN):
         # Generate a new population
-        population1 = toolbox.generate()
+        if gen%2==0:
+            population1 = toolbox.generate(0)
+        else:population1 = toolbox.generate(1)
         population = population1
 
         # Evaluate the individuals
@@ -188,18 +192,24 @@ def main():
                 indlogs.append([genom, fit, 0, ind.valConstr, ind.parent_genome,ind.parent_obj,gen])
         
         # Update the strategy with the evaluated individuals
-        toolbox.update(population,UPBOUNDS=UPBOUNDS,LOWBOUNDS=LOWBOUNDS,evalfunc=zdt1)
+        toolbox.update(population)
         dcparent = copy.deepcopy(strategy.parents)
         dcparent = sorted(dcparent,key=lambda x:x[0])
-        C = numpy.dot(dcparent[-1].A, dcparent[-1].A.T)
-        a, b = scipy.linalg.eigh(C)
-        a = a.tolist()
-        Ases.append(a)
-        d = numpy.hstack((b[:,0],b[:,1]))
-        first_pc.append(d.tolist())
+        domiC = numpy.dot(dcparent[-1].dominateA, dcparent[-1].dominateA.T)
+        domia, domib = scipy.linalg.eigh(domiC)
+        domia = domia.tolist()
+        domiAses.append(domia)
+        indC = numpy.dot(dcparent[-1].indicatorA, dcparent[-1].indicatorA.T)
+        inda, indb = scipy.linalg.eigh(indC)
+        inda = inda.tolist()
+        indAses.append(inda)
+        domid = numpy.hstack((domib[:,0],domib[:,1]))
+        indd = numpy.hstack((indb[:,0],indb[:,1]))
+        domifirst_pc.append(domid.tolist())
+        indfirst_pc.append(indd.tolist())
         genSigma = []
         genSigma.append(dcparent[-1].sigma)
-        detA.append(scipy.linalg.det(dcparent[-1].A))
+        #detA.append(scipy.linalg.det(dcparent[-1].A))
         sigmas.append(genSigma)
         sucrate.append([strategy.dominating_Success,strategy.success_outer,strategy.success,strategy.missed_both_alive_out,strategy.missed_both_alive_in, strategy.parentonly_alive_out,strategy.parentonly_alive_in,strategy.less_constraint])
         tGen, hGen = recHV(strategy.parents, ref)
@@ -230,7 +240,7 @@ def main():
     trIndLog = transLogs(indlogs)
     df = pandas.DataFrame(trIndLog)
 
-    return trueParetoLog[-1], eval_log, df, HVlog, allTF, sigmas, Ases,sucrate,first_pc,detA
+    return trueParetoLog[-1], eval_log, df, HVlog, allTF, sigmas, domiAses,indAses,sucrate,domifirst_pc,indfirst_pc,detA
 
 def transLogs(logs):
     trdlogs = list()
@@ -248,7 +258,7 @@ def transLogs(logs):
 if __name__ == "__main__":
     num_exc = 10
     for reps in range(0,num_exc):
-        solutions, fitness_history, df, HVlog, tflog, siglog, Alog,sucrate,firstPC,detA = main()
+        solutions, fitness_history, df, HVlog, tflog, siglog, domiAlog,indAlog,sucrate,domifirstPC,indfirstPC,detA = main()
         df.to_csv("MONES"+"%03.f"%(reps)+".csv")
         dh = pandas.DataFrame(HVlog)
         dh.to_csv("MONESHV"+"%03.f"%(reps)+".csv")
@@ -258,15 +268,21 @@ if __name__ == "__main__":
         sigtr = transLogs(siglog)
         dsig = pandas.DataFrame(sigtr)
         dsig.to_csv("NESSigmaLog" + "%03.f" % (reps) + ".csv")
-        Atr = transLogs(Alog)
-        Ad = pandas.DataFrame(Atr)
-        Ad.to_csv("NESALog" + "%03.f" % (reps) + ".csv")
+        domiAtr = transLogs(domiAlog)
+        domiAtr = pandas.DataFrame(domiAtr)
+        domiAtr.to_csv("NESdomiALog" + "%03.f" % (reps) + ".csv")
+        indAtr = transLogs(indAlog)
+        indAd = pandas.DataFrame(indAtr)
+        indAd.to_csv("NESindALog" + "%03.f" % (reps) + ".csv")
         tsucrate = transLogs(sucrate)
         tsucrated = pandas.DataFrame(tsucrate)
         tsucrated.to_csv("NESsuccessRateLog" + "%03.f" % (reps) + ".csv")
-        tfpc = transLogs(firstPC)
-        ttfpc = pandas.DataFrame(tfpc)
-        ttfpc.to_csv("NESFirstPC" + "%03.f" % (reps) + ".csv")
+        domitfpc = transLogs(domifirstPC)
+        domittfpc = pandas.DataFrame(domitfpc)
+        domittfpc.to_csv("NESdomiFirstPC" + "%03.f" % (reps) + ".csv")
+        indtfpc = transLogs(indfirstPC)
+        indttfpc = pandas.DataFrame(indtfpc)
+        indttfpc.to_csv("NESindFirstPC" + "%03.f" % (reps) + ".csv")
         detAd = pandas.DataFrame(detA)
         detAd.to_csv("NESdetALog" + "%03.f" % (reps) + ".csv")
 
