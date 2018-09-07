@@ -28,7 +28,7 @@ import functools
 # Problem size
 N=2
 
-
+eps = 1e-5
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
 creator.create("Individual", list, fitness=creator.FitnessMin, volViolation=0, valConstr=None, volOverBounds=0,
@@ -39,11 +39,11 @@ def zdt1(LOWBOUNDS,UPBOUNDS,ind):
     gnm = []
     conresult = []
     for i, num in enumerate(ind):
-        if num < LOWBOUNDS[i]:
+        if num < LOWBOUNDS[i]-eps:
             gnm.append(LOWBOUNDS[i])
             conresult.append(num - LOWBOUNDS[i])
             ind.isFeasible = False
-        elif num > UPBOUNDS[i]:
+        elif num > UPBOUNDS[i]+eps:
             gnm.append(UPBOUNDS[i])
             conresult.append(UPBOUNDS[i] - num)
             ind.isFeasible = False
@@ -106,10 +106,10 @@ def main():
     numpy.random.seed()
     LOWBOUNDS = numpy.zeros(N)
     UPBOUNDS = numpy.ones(N)
-    iniLOWBOUNDS = [1e-1,1e-2]
-    iniUPBOUNDS  = [1e-1,1e-2]
+    iniLOWBOUNDS = [0,1e-5]
+    iniUPBOUNDS  = [1e-1,1e-5]
     iniUPBOUNDS=numpy.array(iniUPBOUNDS)
-    MU, LAMBDA = 1, 1
+    MU, LAMBDA = 100, 1
 
     NGEN = 3000
     eval_log = numpy.empty((0,2) , float)
@@ -145,7 +145,7 @@ def main():
         else:
             indlogs.append([genom, fit, 0, ind.valConstr, 0])
 
-    strategy = cma.NaturalStrategyMultiObjective(population, sigma=1e-6, mu=MU, lambda_=LAMBDA)
+    strategy = cma.NaturalStrategyMultiObjective(population, sigma=1e-3, mu=MU, lambda_=LAMBDA)
     toolbox.register("generate", strategy.generate, creator.Individual)
     toolbox.register("update", strategy.update)
     t0 ,h0 = recHV(population,ref)

@@ -77,21 +77,23 @@ class NaturalStrategyMultiObjective(object):
         arz = numpy.random.randn(self.lambda_, self.dim)
         individuals = list()
 
+        self.parents=sorted(self.parents, key=lambda x: x[0],reverse=True)
         # Make sure every parent has a parent tag and index
         for i, p in enumerate(self.parents):
             p._ps = "p", i
             p.Rank = 0
 
-        self.parents=sorted(self.parents, key=lambda x: x[0])
-        # Each parent produce an offspring
-        for i in range(self.lambda_):
-            # print "Z", list(arz[i])
+        for i in range(self.mu):
             if self.parents[i].dominateA is None:
                 self.parents[i].dominateA = numpy.identity(self.dim)
                 self.parents[i].indicatorA = numpy.identity(self.dim)
                 self.parents[i].sigma = self.initSigmas
                 self.parents[i].invA = numpy.identity(self.dim)
                 self.parents[i].logdetA = 0
+        # Each parent produce an offspring
+        for i in range(self.lambda_):
+            # print "Z", list(arz[i])
+
 
             cparent = copy.deepcopy(self.parents[i])
             individuals.append(ind_init(cparent + (1-a)*cparent.sigma * numpy.dot(cparent.indicatorA, arz[i])+a*cparent.sigma * numpy.dot(cparent.dominateA, arz[i])))
@@ -214,38 +216,43 @@ class NaturalStrategyMultiObjective(object):
 
 
         # Only the offspring update the parameter set
-        if population[-1].Rank < self.parents[-1].Rank and population[-1].Rank <= self.mu:
-            gm = numpy.outer(population[-1].theta, population[-1].theta) - numpy.identity(self.dim)
-            gsigma = numpy.trace(gm) / self.dim
-            ga = gm - gsigma * numpy.identity(self.dim)
-            population[-1].sigma = population[-1].sigma * exp(self.etasigma * gsigma / 2.0)
-            proc = 0.5 * (self.etaA * ga)
-            GGA = scipy.linalg.expm(proc)
-            if gsigma > 0 :
-                count1+=1
-            else:count2 += 1
-            if self.dominates(population[-1],self.parents[-1]):
-                count7 += 1
-                population[-1].dominateA = numpy.dot(population[-1].dominateA, GGA)
-            else:population[-1].indicatorA = numpy.dot(population[-1].indicatorA, GGA)
-            if numpy.sum(population[-1].valConstr[1:]) < numpy.sum(self.parents[-1].valConstr[1:]):
-                count8 += 1
+        for ind in population:
+            if ind.Rank < self.parents[ind._ps[1]].Rank and ind.Rank <= self.mu:
+                gm = numpy.outer(ind.theta, ind.theta) - numpy.identity(self.dim)
+                gsigma = numpy.trace(gm) / self.dim
+                ga = gm - gsigma * numpy.identity(self.dim)
+                ind.sigma = ind.sigma * exp(self.etasigma * gsigma / 2.0)
+                proc = 0.5 * (self.etaA * ga)
+                GGA = scipy.linalg.expm(proc)
+                if gsigma > 0:
+                    count1 += 1
+                else:
+                    count2 += 1
+                if self.dominates(ind, self.parents[ind._ps[1]]):
+                    count7 += 1
 
-        elif population[-1].Rank > self.parents[-1].Rank and population[-1].Rank <= self.mu:
-            gm = numpy.outer(population[-1].theta, population[-1].theta) - numpy.identity(self.dim)
-            gsimga = numpy.trace(gm) / self.dim
-            if gsimga > 0:
-                count3 += 1
+                    ind.dominateA = numpy.dot(ind.dominateA, GGA)
+                else:
+                    ind.indicatorA = numpy.dot(ind.indicatorA, GGA)
+                if numpy.sum(ind.valConstr[1:]) < numpy.sum(self.parents[ind._ps[1]].valConstr[1:]):
+                    count8 += 1
+
+            elif ind.Rank > self.parents[ind._ps[1]].Rank and ind.Rank <= self.mu:
+                gm = numpy.outer(ind.theta, ind.theta) - numpy.identity(self.dim)
+                gsimga = numpy.trace(gm) / self.dim
+                if gsimga > 0:
+                    count3 += 1
+                else:
+                    count4 += 1
+            elif ind.Rank > self.mu and self.parents[ind._ps[1]].Rank <= self.mu:
+                gm = numpy.outer(ind.theta, ind.theta) - numpy.identity(self.dim)
+                gsigma = numpy.trace(gm) / self.dim
+                if gsigma > 0:
+                    count5 += 1
+                else:
+                    count6 += 1
             else:
-                count4 += 1
-        elif population[-1].Rank > self.mu and self.parents[-1].Rank <= self.mu:
-            gm = numpy.outer(population[-1].theta, population[-1].theta) - numpy.identity(self.dim)
-            gsigma = numpy.trace(gm) / self.dim
-            if gsigma > 0 :
-                count5+=1
-            else:count6 += 1
-        else:
-            print(str(population[-1].Rank)+" and parent achieved "+str(self.parents[-1].Rank))
+                print(str(ind.Rank) + " and parent achieved " + str(self.parents[ind._ps[1]].Rank))
 
         self.dominating_Success = count7
         self.success_outer = count1
