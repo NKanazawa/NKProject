@@ -106,12 +106,12 @@ def main():
     numpy.random.seed()
     LOWBOUNDS = numpy.zeros(N)
     UPBOUNDS = numpy.ones(N)
-    iniLOWBOUNDS = [0,1e-5]
-    iniUPBOUNDS  = [1e-1,1e-5]
+    iniLOWBOUNDS = [1e-1,1e-1]
+    iniUPBOUNDS  = [1e-1,1e-1]
     iniUPBOUNDS=numpy.array(iniUPBOUNDS)
-    MU, LAMBDA = 100, 1
+    MU, LAMBDA = 1, 1
 
-    NGEN = 3000
+    NGEN = 2000
     eval_log = numpy.empty((0,2) , float)
     verbose = True
     create_plot = True
@@ -145,7 +145,7 @@ def main():
         else:
             indlogs.append([genom, fit, 0, ind.valConstr, 0])
 
-    strategy = cma.NaturalStrategyMultiObjective(population, sigma=1e-3, mu=MU, lambda_=LAMBDA)
+    strategy = cma.NaturalStrategyMultiObjective(population, sigma=1e-5, mu=MU, lambda_=LAMBDA)
     toolbox.register("generate", strategy.generate, creator.Individual)
     toolbox.register("update", strategy.update)
     t0 ,h0 = recHV(population,ref)
@@ -192,7 +192,9 @@ def main():
                 indlogs.append([genom, fit, 0, ind.valConstr, ind.parent_genome,ind.parent_obj,gen])
         
         # Update the strategy with the evaluated individuals
-        toolbox.update(population)
+        if gen%2==0:
+            toolbox.update(population,0)
+        else:toolbox.update(population,1)
         dcparent = copy.deepcopy(strategy.parents)
         dcparent = sorted(dcparent,key=lambda x:x[0])
         domiC = numpy.dot(dcparent[-1].dominateA, dcparent[-1].dominateA.T)

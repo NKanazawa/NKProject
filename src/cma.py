@@ -195,7 +195,7 @@ class NaturalStrategyMultiObjective(object):
 
 
 
-    def update(self, population):
+    def update(self, population,oddoreven):
         """Update the current covariance matrix strategies from the
         *population*.
 
@@ -221,7 +221,6 @@ class NaturalStrategyMultiObjective(object):
                 gm = numpy.outer(ind.theta, ind.theta) - numpy.identity(self.dim)
                 gsigma = numpy.trace(gm) / self.dim
                 ga = gm - gsigma * numpy.identity(self.dim)
-                ind.sigma = ind.sigma * exp(self.etasigma * gsigma / 2.0)
                 proc = 0.5 * (self.etaA * ga)
                 GGA = scipy.linalg.expm(proc)
                 if gsigma > 0:
@@ -230,10 +229,13 @@ class NaturalStrategyMultiObjective(object):
                     count2 += 1
                 if self.dominates(ind, self.parents[ind._ps[1]]):
                     count7 += 1
-
-                    ind.dominateA = numpy.dot(ind.dominateA, GGA)
+                    if oddoreven == 1:
+                        ind.sigma = ind.sigma * exp(self.etasigma * gsigma / 2.0)
+                        ind.dominateA = numpy.dot(ind.dominateA, GGA)
                 else:
-                    ind.indicatorA = numpy.dot(ind.indicatorA, GGA)
+                    if oddoreven == 0:
+                        ind.sigma = ind.sigma * exp(self.etasigma * gsigma / 2.0)
+                        ind.indicatorA = numpy.dot(ind.indicatorA, GGA)
                 if numpy.sum(ind.valConstr[1:]) < numpy.sum(self.parents[ind._ps[1]].valConstr[1:]):
                     count8 += 1
 
