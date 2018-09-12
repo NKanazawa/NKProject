@@ -189,7 +189,9 @@ def main():
                 indlogs.append([genom, fit, 0, ind.valConstr, ind.parent_genome,ind.parent_obj,gen])
         
         # Update the strategy with the evaluated individuals
-        toolbox.update(population)
+        if gen%2==0:
+            toolbox.update(population,0)
+        else:toolbox.update(population,1)
         dcparent = copy.deepcopy(strategy.parents)
         dcparent = sorted(dcparent,key=lambda x:x[0])
         domiC = numpy.dot(dcparent[-1].dominateA, dcparent[-1].dominateA.T)
