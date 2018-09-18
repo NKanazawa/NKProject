@@ -32,7 +32,7 @@ eps = 1e-5
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
 creator.create("Individual", list, fitness=creator.FitnessMin, volViolation=0, valConstr=None, volOverBounds=0,
-               isFeasible=True, dominateA=None,indicatorA=None, z=None, sigma=None, parent_genome=None, parent_obj=None,parent_c=None,paretoRank = 0)
+               isFeasible=True, dominateA=None,indicatorA=None, z=None, domisigma=None, indsigma=None,parent_genome=None, parent_obj=None,parent_c=None,paretoRank = 0)
 
 
 def zdt1(LOWBOUNDS,UPBOUNDS,ind):
@@ -106,12 +106,12 @@ def main():
     numpy.random.seed()
     LOWBOUNDS = numpy.zeros(N)
     UPBOUNDS = numpy.ones(N)
-    iniLOWBOUNDS = [1e-1,1e-1]
-    iniUPBOUNDS  = [1e-1,1e-1]
+    iniLOWBOUNDS = [0,1e-5]
+    iniUPBOUNDS  = [1e-1,1e-5]
     iniUPBOUNDS=numpy.array(iniUPBOUNDS)
-    MU, LAMBDA = 1, 1
+    MU, LAMBDA = 100, 1
 
-    NGEN = 2000
+    NGEN = 3000
     eval_log = numpy.empty((0,2) , float)
     verbose = True
     create_plot = True
@@ -145,7 +145,7 @@ def main():
         else:
             indlogs.append([genom, fit, 0, ind.valConstr, 0])
 
-    strategy = cma.NaturalStrategyMultiObjective(population, sigma=1e-5, mu=MU, lambda_=LAMBDA)
+    strategy = cma.NaturalStrategyMultiObjective(population, sigma=1e-3, mu=MU, lambda_=LAMBDA)
     toolbox.register("generate", strategy.generate, creator.Individual)
     toolbox.register("update", strategy.update)
     t0 ,h0 = recHV(population,ref)
@@ -210,7 +210,7 @@ def main():
         domifirst_pc.append(domid.tolist())
         indfirst_pc.append(indd.tolist())
         genSigma = []
-        genSigma.append(dcparent[-1].sigma)
+        genSigma.append([dcparent[-1].indsigma,dcparent[-1].domisigma])
         #detA.append(scipy.linalg.det(dcparent[-1].A))
         sigmas.append(genSigma)
         sucrate.append([strategy.dominating_Success,strategy.success_outer,strategy.success,strategy.missed_both_alive_out,strategy.missed_both_alive_in, strategy.parentonly_alive_out,strategy.parentonly_alive_in,strategy.less_constraint])
