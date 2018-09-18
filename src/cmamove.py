@@ -88,7 +88,7 @@ class NaturalStrategyMultiObjective(object):
             if self.parents[i].dominateA is None:
                 self.parents[i].dominateA = numpy.identity(self.dim)
                 self.parents[i].indicatorA = numpy.identity(self.dim)
-                self.parents[i].domisigma = 1e-4 * self.initdomiSigmas
+                self.parents[i].domisigma = self.initdomiSigmas
                 self.parents[i].indsigma = self.initindSigmas
                 self.parents[i].invA = numpy.identity(self.dim)
                 self.parents[i].logdetA = 0
@@ -235,14 +235,11 @@ class NaturalStrategyMultiObjective(object):
                     if oddoreven == 1:
                         ind.domisigma = ind.domisigma * exp(self.etasigma * gsigma / 2.0)
                         ind.dominateA = numpy.dot(ind.dominateA, GGA)
-                    else:
-                        chosen[ind.Rank-1] = self.parents[ind._ps[1]]
                 else:
                     if oddoreven == 0:
                         ind.indsigma = ind.indsigma * exp(self.etasigma * gsigma / 2.0)
                         ind.indicatorA = numpy.dot(ind.indicatorA, GGA)
-                    else:
-                        chosen[ind.Rank - 1] = self.parents[ind._ps[1]]
+
                 if numpy.sum(ind.valConstr[1:]) < numpy.sum(self.parents[ind._ps[1]].valConstr[1:]):
                     count8 += 1
 
