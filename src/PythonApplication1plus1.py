@@ -106,12 +106,12 @@ def main():
     numpy.random.seed()
     LOWBOUNDS = numpy.zeros(N)
     UPBOUNDS = numpy.ones(N)
-    iniLOWBOUNDS = [1e-1,1e-1]
-    iniUPBOUNDS  = [1e-1,1e-1]
+    iniLOWBOUNDS = [0,1e-5]
+    iniUPBOUNDS  = [1e-1,1e-5]
     iniUPBOUNDS=numpy.array(iniUPBOUNDS)
-    MU, LAMBDA = 1, 1
+    MU, LAMBDA = 100, 1
 
-    NGEN = 2000
+    NGEN = 3000
     eval_log = numpy.empty((0,2) , float)
     verbose = True
     create_plot = True

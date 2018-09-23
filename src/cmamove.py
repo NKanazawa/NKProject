@@ -46,16 +46,10 @@ class NaturalStrategyMultiObjective(object):
         self.etasigma = (3+numpy.log(self.dim))/(4+3*numpy.log(self.dim))/pow(self.dim,1.5)
         self.etaA = self.etasigma
         self.eps = numpy.sqrt(self.dim)*(1-1/(4*self.dim)+1/(21*numpy.power(self.dim,2)))
-        self.infeasiblew = -1e-9
 
         # Internal parameters associated to the mu parent
         self.initdomiSigmas = sigma
         self.initindSigmas = sigma
-
-        # counting sequential-achieving of infeasible
-        self.infeasibleonind = 0
-        self.infeasibleondom = 0
-        self.thresholdinfeasible = 0
 
         #集計パラメータ
         self.dominating_Success = 0
@@ -105,7 +99,7 @@ class NaturalStrategyMultiObjective(object):
 
             cparent = copy.deepcopy(self.parents[i])
             individuals.append(ind_init(cparent + (1-a)*cparent.indsigma * numpy.dot(cparent.indicatorA, arz[i])+a*cparent.domisigma * numpy.dot(cparent.dominateA, arz[i])))
-            individuals[i].theta = arz[i]
+            individuals[i].theta = arz[-1]
             individuals[i]._ps = "o", i
             individuals[i].Rank = 0
             individuals[i].contr = 0
@@ -239,12 +233,10 @@ class NaturalStrategyMultiObjective(object):
                 if self.dominates(ind, self.parents[ind._ps[1]]):
                     count7 += 1
                     if oddoreven == 1:
-                        self.infeasibleondom = 0
                         ind.domisigma = ind.domisigma * exp(self.etasigma * gsigma / 2.0)
                         ind.dominateA = numpy.dot(ind.dominateA, GGA)
                 else:
                     if oddoreven == 0:
-                        self.infeasibleonind = 0
                         ind.indsigma = ind.indsigma * exp(self.etasigma * gsigma / 2.0)
                         ind.indicatorA = numpy.dot(ind.indicatorA, GGA)
 
@@ -259,26 +251,12 @@ class NaturalStrategyMultiObjective(object):
                 else:
                     count4 += 1
             elif ind.Rank > self.mu and self.parents[ind._ps[1]].Rank <= self.mu:
-                gm = self.infeasiblew *( numpy.outer(ind.theta, ind.theta) - numpy.identity(self.dim))
+                gm = numpy.outer(ind.theta, ind.theta) - numpy.identity(self.dim)
                 gsigma = numpy.trace(gm) / self.dim
-                if gsigma < 0:
+                if gsigma > 0:
                     count5 += 1
                 else:
                     count6 += 1
-                ga = gm - gsigma * numpy.identity(self.dim)
-                proc = 0.5 * (self.etaA * ga)
-                GGA = scipy.linalg.expm(proc)
-                if self.parents[ind._ps[1]].isFeasible and not ind.isFeasible:
-                    if oddoreven == 0 and self.infeasibleonind < self.thresholdinfeasible:
-                        self.infeasibleonind += 1
-                    elif oddoreven == 1 and self.infeasibleondom < self.thresholdinfeasible:
-                        self.infeasibleondom += 1
-                    elif oddoreven == 0 and self.infeasibleonind >= self.thresholdinfeasible:
-                        self.parents[ind._ps[1]].indsigma = self.parents[ind._ps[1]].indsigma * exp(self.etasigma * gsigma / 2.0)
-                        self.parents[ind._ps[1]].indicatorA = numpy.dot(self.parents[ind._ps[1]].indicatorA, GGA)
-                    elif oddoreven == 1 and self.infeasibleondom > self.thresholdinfeasible:
-                        self.parents[ind._ps[1]].domisigma = self.parents[ind._ps[1]].domisigma * exp(self.etasigma * gsigma / 2.0)
-                        self.parents[ind._ps[1]].dominateA = numpy.dot(self.parents[ind._ps[1]].dominateA, GGA)
             else:
                 print(str(ind.Rank) + " and parent achieved " + str(self.parents[ind._ps[1]].Rank))
 

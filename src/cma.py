@@ -46,7 +46,6 @@ class NaturalStrategyMultiObjective(object):
         self.etasigma = (3+numpy.log(self.dim))/(4+3*numpy.log(self.dim))/pow(self.dim,1.5)
         self.etaA = self.etasigma
         self.eps = numpy.sqrt(self.dim)*(1-1/(4*self.dim)+1/(21*numpy.power(self.dim,2)))
-        self.infeasiblew = -0.01
 
         # Internal parameters associated to the mu parent
         self.initdomiSigmas = sigma
@@ -77,7 +76,7 @@ class NaturalStrategyMultiObjective(object):
         """
 
         arz = numpy.random.randn(self.lambda_, self.dim)
-        individuals, symindividuals = list()
+        individuals = list()
 
         self.parents=sorted(self.parents, key=lambda x: x[0],reverse=True)
         # Make sure every parent has a parent tag and index
@@ -100,16 +99,14 @@ class NaturalStrategyMultiObjective(object):
 
             cparent = copy.deepcopy(self.parents[i])
             individuals.append(ind_init(cparent + (1-a)*cparent.indsigma * numpy.dot(cparent.indicatorA, arz[i])+a*cparent.domisigma * numpy.dot(cparent.dominateA, arz[i])))
-            symindividuals.append(ind_init(cparent + (1-a)*cparent.indsigma * numpy.dot(cparent.indicatorA, -arz[i])+a*cparent.domisigma * numpy.dot(cparent.dominateA, -arz[i])))
-            individuals[i].theta = arz[i]
-            symindividuals[i].theta= -arz[i]
-            individuals[i]._ps,symindividuals[i]._ps = "o", i
-            individuals[i].Rank,symindividuals[i].Rank = 0
-            individuals[i].contr,symindividuals[i].contr = 0
-            individuals[i].dominateA,symindividuals[i].dominateA = cparent.dominateA
-            individuals[i].indicatorA,symindividuals[i].indicatorA = cparent.indicatorA
-            individuals[i].domisigma,symindividuals[i].domisigma = cparent.domisigma
-            individuals[i].indsigma,symindividuals[i].indsigma = cparent.indsigma
+            individuals[i].theta = arz[-1]
+            individuals[i]._ps = "o", i
+            individuals[i].Rank = 0
+            individuals[i].contr = 0
+            individuals[i].dominateA = cparent.dominateA
+            individuals[i].indicatorA = cparent.indicatorA
+            individuals[i].domisigma = cparent.domisigma
+            individuals[i].indsigma = cparent.indsigma
             individuals[i].parent_genome = []
             individuals[i].parent_c = cparent.parent_c
             for mat in cparent:
@@ -257,22 +254,12 @@ class NaturalStrategyMultiObjective(object):
                 else:
                     count4 += 1
             elif ind.Rank > self.mu and self.parents[ind._ps[1]].Rank <= self.mu:
-                gm = self.infeasiblew * numpy.outer(ind.theta, ind.theta) - numpy.identity(self.dim)
+                gm = numpy.outer(ind.theta, ind.theta) - numpy.identity(self.dim)
                 gsigma = numpy.trace(gm) / self.dim
-                if gsigma < 0:
+                if gsigma > 0:
                     count5 += 1
                 else:
                     count6 += 1
-                ga = gm - gsigma * numpy.identity(self.dim)
-                proc = 0.5 * (self.etaA * ga)
-                GGA = scipy.linalg.expm(proc)
-                if self.parents[ind._ps[1]].isFeasible and not ind.isFeasible:
-                    if oddoreven == 0:
-                        self.parents[ind._ps[1]].indsigma = self.parents[ind._ps[1]].indsigma * exp(self.etasigma * gsigma / 2.0)
-                        self.parents[ind._ps[1]].indicatorA = numpy.dot(self.parents[ind._ps[1]].indicatorA, GGA)
-                    elif oddoreven == 1:
-                        self.parents[ind._ps[1]].domisigma = self.parents[ind._ps[1]].domisigma * exp(self.etasigma * gsigma / 2.0)
-                        self.parents[ind._ps[1]].dominateA = numpy.dot(self.parents[ind._ps[1]].dominateA, GGA)
             else:
                 print(str(ind.Rank) + " and parent achieved " + str(self.parents[ind._ps[1]].Rank))
 
