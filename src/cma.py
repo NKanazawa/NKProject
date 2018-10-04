@@ -46,16 +46,15 @@ class NaturalStrategyMultiObjective(object):
         self.etasigma = (3+numpy.log(self.dim))/(4+3*numpy.log(self.dim))/pow(self.dim,1.5)
         self.etaA = self.etasigma
         self.eps = numpy.sqrt(self.dim)*(1-1/(4*self.dim)+1/(21*numpy.power(self.dim,2)))
-        self.infeasiblew = -0.5
+        self.infeasiblew = -0.01
 
         # Internal parameters associated to the mu parent
         self.initdomiSigmas = sigma
         self.initindSigmas = sigma
 
-        # counting sequential-achieving of infeasible
+        # 現在の状態
         self.infeasibleonind = 0
-        self.infeasibleondom = 0
-        self.thresholdmissed = 50
+        self.first = False
 
         #集計パラメータ
         self.dominating_Success = 0
@@ -69,7 +68,7 @@ class NaturalStrategyMultiObjective(object):
 
         self.indicator = params.get("indicator", tools.hypervolume)
 
-    def generate(self, ind_init,a):
+    def generate(self, ind_init):
         """Generate a population of :math:`\lambda` individuals of type
         *ind_init* from the current strategy.
 
@@ -104,7 +103,7 @@ class NaturalStrategyMultiObjective(object):
 
 
             cparent = copy.deepcopy(self.parents[i])
-            individuals.append(ind_init(cparent + (1-a)*cparent.indsigma * numpy.dot(cparent.indicatorA, arz[i])+a*cparent.domisigma * numpy.dot(cparent.dominateA, arz[i])))
+            individuals.append(ind_init(cparent + (1-cparent.oddoreven)*cparent.indsigma * numpy.dot(cparent.indicatorA, arz[i])+cparent.oddoreven*cparent.domisigma * numpy.dot(cparent.dominateA, arz[i])))
             individuals[i].theta = arz[i]
             individuals[i]._ps = "o", i
             individuals[i].Rank = 0
@@ -204,7 +203,7 @@ class NaturalStrategyMultiObjective(object):
 
 
 
-    def update(self, population,oddoreven):
+    def update(self, population):
         """Update the current covariance matrix strategies from the
         *population*.
 
@@ -238,16 +237,33 @@ class NaturalStrategyMultiObjective(object):
                     count2 += 1
                 if self.dominates(ind, self.parents[ind._ps[1]]):
                     count7 += 1
-                    if oddoreven == 1:
+                    if self.parents[ind._ps[1]].oddoreven == 1:
                         self.infeasibleondom = 0
                         ind.domisigma = ind.domisigma * exp(self.etasigma * gsigma / 2.0)
                         ind.dominateA = numpy.dot(ind.dominateA, GGA)
+                    """elif self.parents[ind._ps[1]].oddoreven == 0 and self.parents[ind._ps[1]].madeinfeasible:
+                        base = numpy.dot(self.parents[ind._ps[1]].indicatorA, ind.theta)
+                        zT = numpy.linalg.solve(self.parents[ind._ps[1]].dominateA,base)
+                        Tgm =0.05*(numpy.outer(zT, zT) - numpy.identity(self.dim))
+                        Tgsigma = numpy.trace(Tgm)
+                        Tga = zT - Tgsigma * numpy.identity(self.dim)
+                        TGGA = scipy.linalg.expm(0.5*(self.etaA*Tga))
+                        ind.domisigma = ind.domisigma * exp(self.etasigma * Tgsigma / 2.0)
+                        ind.dominateA = numpy.dot(ind.dominateA, TGGA)"""
                 else:
-                    if oddoreven == 0:
+                    if self.parents[ind._ps[1]].oddoreven == 0:
                         self.infeasibleonind = 0
                         ind.indsigma = ind.indsigma * exp(self.etasigma * gsigma / 2.0)
                         ind.indicatorA = numpy.dot(ind.indicatorA, GGA)
-
+                    """elif oddoreven == 1 and self.parents[ind._ps[1]].madeinfeasible:
+                        base = numpy.dot(self.parents[ind._ps[1]].dominateA, ind.theta)
+                        zT = numpy.linalg.solve(self.parents[ind._ps[1]].indicatorA, base)
+                        Tgm =0.05*(numpy.outer(zT, zT) - numpy.identity(self.dim))
+                        Tgsigma = numpy.trace(Tgm)
+                        Tga = zT - Tgsigma * numpy.identity(self.dim)
+                        TGGA = scipy.linalg.expm(0.5 * (self.etaA * Tga))
+                        ind.indsigma = ind.domisigma * exp(self.etasigma * Tgsigma / 2.0)
+                        ind.indicatorA = numpy.dot(ind.dominateA, TGGA)"""
                 if numpy.sum(ind.valConstr[1:]) < numpy.sum(self.parents[ind._ps[1]].valConstr[1:]):
                     count8 += 1
 
@@ -265,18 +281,27 @@ class NaturalStrategyMultiObjective(object):
                         count5 += 1
                     else:
                         count6 += 1
-                        gm = -gm
-                        gsigma = -gsigma
+                        #gm = -gm
+                        #gsigma = -gsigma
                     ga = gm - gsigma * numpy.identity(self.dim)
                     proc = 0.5 * (self.etaA * ga)
                     GGA = scipy.linalg.expm(proc)
-                    if  (self.parents[ind._ps[1]].isFeasible and not ind.isFeasible):
-                        if oddoreven == 0:
+                    if self.parents[ind._ps[1]].isFeasible and not ind.isFeasible:
+                        if self.parents[ind._ps[1]].oddoreven == 0:
                             self.parents[ind._ps[1]].indsigma = self.parents[ind._ps[1]].indsigma * exp(self.etasigma * gsigma / 2.0)
                             self.parents[ind._ps[1]].indicatorA = numpy.dot(self.parents[ind._ps[1]].indicatorA, GGA)
-                        elif oddoreven == 1:
+                        elif self.parents[ind._ps[1]].oddoreven == 1:
                             self.parents[ind._ps[1]].domisigma = self.parents[ind._ps[1]].domisigma * exp(self.etasigma * gsigma / 2.0)
                             self.parents[ind._ps[1]].dominateA = numpy.dot(self.parents[ind._ps[1]].dominateA, GGA)
+                        if not self.parents[ind._ps[1]].madeinfeasible:
+                            self.parents[ind._ps[1]].madeinfeasible = True
+            if self.parents[ind._ps[1]].madeinfeasible:
+                if self.parents[ind._ps[1]].oddoreven == 0:
+                    self.parents[ind._ps[1]].oddoreven = 1
+                else:
+                    self.parents[ind._ps[1]].oddoreven = 0
+            else:
+                print(str(ind.Rank) + " and parent achieved " + str(self.parents[ind._ps[1]].Rank))
 
         self.dominating_Success = count7
         self.success_outer = count1

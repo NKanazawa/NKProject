@@ -31,8 +31,7 @@ eps = 1e-5
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
 creator.create("Individual", list, fitness=creator.FitnessMin, volViolation=0, valConstr=None, volOverBounds=0,
-               isFeasible=True, dominateA=None, indicatorA=None, z=None, domisigma=None, indsigma=None,
-               parent_genome=None, parent_obj=None, parent_c=None, paretoRank=0)
+               isFeasible=True, dominateA=None,indicatorA=None, z=None, domisigma=None, indsigma=None,parent_genome=None, parent_obj=None,parent_c=None,paretoRank = 0,madeinfeasible=False,oddoreven=1)
 
 
 def zdt1(LOWBOUNDS, UPBOUNDS, ind):
@@ -158,7 +157,7 @@ def main():
         else:
             indlogs.append([genom, fit, 0, ind.valConstr, 0])
 
-    strategy = cma.NaturalStrategyMultiObjective(population, sigma=0.01, mu=MU, lambda_=LAMBDA)
+    strategy = cma.NaturalStrategyMultiObjective(population, sigma=0.1, mu=MU, lambda_=LAMBDA)
     toolbox.register("generate", strategy.generate, creator.Individual)
     toolbox.register("update", strategy.update)
     t0, h0 = recHV(population, ref)
@@ -179,10 +178,8 @@ def main():
     logbook.header = ["gen", "nevals"] + (stats.fields if stats else [])
     for gen in range(NGEN):
         # Generate a new population
-        if gen % 2 == 0:
-            population1 = toolbox.generate(0)
-        else:
-            population1 = toolbox.generate(1)
+
+        population1 = toolbox.generate()
         population = population1
 
         # Evaluate the individuals
@@ -201,10 +198,7 @@ def main():
                 indlogs.append([genom, fit, 0, ind.valConstr, ind.parent_genome, ind.parent_obj, gen])
 
         # Update the strategy with the evaluated individuals
-        if gen % 2 == 0:
-            toolbox.update(population, 0)
-        else:
-            toolbox.update(population, 1)
+        toolbox.update(population)
         dcparent = copy.deepcopy(strategy.parents)
         dcparent = sorted(dcparent, key=lambda x: x[0])
         domiC = numpy.dot(dcparent[-1].dominateA, dcparent[-1].dominateA.T)
