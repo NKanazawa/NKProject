@@ -31,8 +31,7 @@ eps = 1e-5
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
 creator.create("Individual", list, fitness=creator.FitnessMin, volViolation=0, valConstr=None, volOverBounds=0,
-               isFeasible=True, dominateA=None, indicatorA=None, z=None, domisigma=None, indsigma=None,
-               parent_genome=None, parent_obj=None, parent_c=None, paretoRank=0)
+               isFeasible=True, dominateA=None,indicatorA=None, z=None, domisigma=None, indsigma=None,parent_genome=None, parent_obj=None,parent_c=None,paretoRank = 0,madeinfeasible=False,oddoreven=1)
 
 
 def zdt1(LOWBOUNDS, UPBOUNDS, ind):
