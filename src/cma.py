@@ -47,8 +47,9 @@ class NaturalStrategyMultiObjective(object):
         self.etaA = self.etasigma
         self.eps = numpy.sqrt(self.dim)*(1-1/(4*self.dim)+1/(21*numpy.power(self.dim,2)))
         self.infeasiblew = -0.01
+        self.gradextention = 5
 
-        # Internal parameters associated to the mu parent
+        # ステップサイズ初期値
         self.initdomiSigmas = sigma
         self.initindSigmas = sigma
 
@@ -238,32 +239,12 @@ class NaturalStrategyMultiObjective(object):
                 if self.dominates(ind, self.parents[ind._ps[1]]):
                     count7 += 1
                     if self.parents[ind._ps[1]].oddoreven == 1:
-                        self.infeasibleondom = 0
                         ind.domisigma = ind.domisigma * exp(self.etasigma * gsigma / 2.0)
                         ind.dominateA = numpy.dot(ind.dominateA, GGA)
-                    """elif self.parents[ind._ps[1]].oddoreven == 0 and self.parents[ind._ps[1]].madeinfeasible:
-                        base = numpy.dot(self.parents[ind._ps[1]].indicatorA, ind.theta)
-                        zT = numpy.linalg.solve(self.parents[ind._ps[1]].dominateA,base)
-                        Tgm =0.05*(numpy.outer(zT, zT) - numpy.identity(self.dim))
-                        Tgsigma = numpy.trace(Tgm)
-                        Tga = zT - Tgsigma * numpy.identity(self.dim)
-                        TGGA = scipy.linalg.expm(0.5*(self.etaA*Tga))
-                        ind.domisigma = ind.domisigma * exp(self.etasigma * Tgsigma / 2.0)
-                        ind.dominateA = numpy.dot(ind.dominateA, TGGA)"""
                 else:
                     if self.parents[ind._ps[1]].oddoreven == 0:
-                        self.infeasibleonind = 0
                         ind.indsigma = ind.indsigma * exp(self.etasigma * gsigma / 2.0)
                         ind.indicatorA = numpy.dot(ind.indicatorA, GGA)
-                    """elif oddoreven == 1 and self.parents[ind._ps[1]].madeinfeasible:
-                        base = numpy.dot(self.parents[ind._ps[1]].dominateA, ind.theta)
-                        zT = numpy.linalg.solve(self.parents[ind._ps[1]].indicatorA, base)
-                        Tgm =0.05*(numpy.outer(zT, zT) - numpy.identity(self.dim))
-                        Tgsigma = numpy.trace(Tgm)
-                        Tga = zT - Tgsigma * numpy.identity(self.dim)
-                        TGGA = scipy.linalg.expm(0.5 * (self.etaA * Tga))
-                        ind.indsigma = ind.domisigma * exp(self.etasigma * Tgsigma / 2.0)
-                        ind.indicatorA = numpy.dot(ind.dominateA, TGGA)"""
                 if numpy.sum(ind.valConstr[1:]) < numpy.sum(self.parents[ind._ps[1]].valConstr[1:]):
                     count8 += 1
 
@@ -295,6 +276,7 @@ class NaturalStrategyMultiObjective(object):
                             self.parents[ind._ps[1]].dominateA = numpy.dot(self.parents[ind._ps[1]].dominateA, GGA)
                         if not self.parents[ind._ps[1]].madeinfeasible:
                             self.parents[ind._ps[1]].madeinfeasible = True
+                            self.parents[ind._ps[1]].phase = 1
             if self.parents[ind._ps[1]].madeinfeasible:
                 if self.parents[ind._ps[1]].oddoreven == 0:
                     self.parents[ind._ps[1]].oddoreven = 1

@@ -32,7 +32,7 @@ eps = 1e-5
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
 creator.create("Individual", list, fitness=creator.FitnessMin, volViolation=0, valConstr=None, volOverBounds=0,
-               isFeasible=True, dominateA=None,indicatorA=None, z=None, domisigma=None, indsigma=None,parent_genome=None, parent_obj=None,parent_c=None,paretoRank = 0,madeinfeasible=False,oddoreven=1)
+               isFeasible=True, dominateA=None,indicatorA=None, z=None, domisigma=None, indsigma=None,parent_genome=None, parent_obj=None,parent_c=None,paretoRank = 0,madeinfeasible=False,oddoreven=1,phase=0)
 
 
 def zdt1(LOWBOUNDS,UPBOUNDS,ind):
@@ -145,7 +145,7 @@ def main():
         else:
             indlogs.append([genom, fit, 0, ind.valConstr, 0])
 
-    strategy = cma.NaturalStrategyMultiObjective(population, sigma=1e-2, mu=MU, lambda_=LAMBDA)
+    strategy = cma.NaturalStrategyMultiObjective(population, sigma=1e-3, mu=MU, lambda_=LAMBDA)
     toolbox.register("generate", strategy.generate, creator.Individual)
     toolbox.register("update", strategy.update)
     t0 ,h0 = recHV(population,ref)
@@ -210,7 +210,7 @@ def main():
         genSigma.append([dcparent[-1].indsigma,dcparent[-1].domisigma])
         #detA.append(scipy.linalg.det(dcparent[-1].A))
         sigmas.append(genSigma)
-        sucrate.append([strategy.dominating_Success,strategy.success_outer,strategy.success,strategy.missed_both_alive_out,strategy.missed_both_alive_in, strategy.parentonly_alive_out,strategy.parentonly_alive_in,strategy.less_constraint])
+        sucrate.append([strategy.dominating_Success,strategy.success_outer,strategy.success,strategy.missed_both_alive_out,strategy.missed_both_alive_in, strategy.parentonly_alive_out,strategy.parentonly_alive_in,strategy.less_constraint,strategy.parents[-1].phase])
         tGen, hGen = recHV(strategy.parents, ref)
         trueParetoLog.append(tGen)
         for ind in tGen:
