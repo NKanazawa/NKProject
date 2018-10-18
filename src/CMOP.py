@@ -157,7 +157,7 @@ def main():
         else:
             indlogs.append([genom, fit, 0, ind.valConstr, 0])
 
-    strategy = cma.NaturalStrategyMultiObjective(population, sigma=0.1, mu=MU, lambda_=LAMBDA)
+    strategy = cma.NaturalStrategyMultiObjective(population, sigma=0.01, mu=MU, lambda_=LAMBDA)
     toolbox.register("generate", strategy.generate, creator.Individual)
     toolbox.register("update", strategy.update)
     t0, h0 = recHV(population, ref)
