@@ -50,21 +50,26 @@ def zdt1(LOWBOUNDS, UPBOUNDS, ind):
             gnm.append((trueUP[i] - trueLOW[i]) * (num / subD) + trueLOW[i])
             conresult.append(numpy.minimum(num - LOWBOUNDS[i], UPBOUNDS[i] - num))
     gnm = numpy.array(gnm)
-    obj1 = gnm[0]
-    obj2 = numpy.power(1 - gnm[0], 2)
-    for i in range(1, N):
-        if i % 2 == 0:
-            obj1 += numpy.power(gnm[i] - 0.8 * gnm[0] * numpy.cos(6 * numpy.pi * gnm[0] + (numpy.pi * (i + 1)) / N), 2)
-        else:
-            obj2 += numpy.power(gnm[i] - 0.8 * gnm[0] * numpy.sin(6 * numpy.pi * gnm[0] + (numpy.pi * (i + 1)) / N), 2)
+    obj1 = 0.7854 * gnm[0] * numpy.power(gnm[1], 2) * (
+                (10 * numpy.power(gnm[2], 2)) / 3 + 14.933 * gnm[2] - 43.0934) - 1.508 * gnm[0] * (
+                       numpy.power(gnm[5], 2) + numpy.power(gnm[6], 2)) + 7.477 * (
+                       numpy.power(gnm[5], 3) + numpy.power(gnm[6], 3)) + 0.7854 * (
+                       gnm[3] * numpy.power(gnm[5], 2) + gnm[4] * numpy.power(gnm[6], 2))
+    obj2 = (numpy.sqrt(numpy.power((745 * gnm[3]) / (gnm[1] * gnm[2]), 2) + 1.69 * 1e7)) / (
+                0.1 * numpy.power(gnm[5], 3))
     result = [obj1, obj2]
-    g1 = gnm[1] - 0.8 * gnm[0] * numpy.sin(6 * numpy.pi * gnm[0] + (numpy.pi * 2) / N) - numpy.sign(
-        0.5 * (1 - gnm[0]) - numpy.power(1 - gnm[0], 2)) * numpy.sqrt(
-        numpy.abs(0.5 * (1 - gnm[0]) - numpy.power(1 - gnm[0], 2)))
-    g2 = gnm[3] - 0.8 * gnm[0] * numpy.sin(6 * numpy.pi * gnm[0] + (numpy.pi * 4) / N) - numpy.sign(
-        0.25 * numpy.sqrt(1 - gnm[0]) - 0.5 * (1 - gnm[0])) * numpy.sqrt(
-        numpy.abs(0.25 * numpy.sqrt(1 - gnm[0]) - 0.5 * (1 - gnm[0])))
-    conresult = [g1, g2]
+    g1 = (gnm[0] * numpy.power(gnm[1], 2) * gnm[2]) - 27
+    g2 = (gnm[0] * numpy.power(gnm[1], 2) * numpy.power(gnm[2], 2)) - 397.5
+    g3 = (gnm[1] * gnm[2] * numpy.power(gnm[5], 4)) - 1.93 * numpy.power(gnm[3], 3)
+    g4 = (gnm[1] * gnm[2] * numpy.power(gnm[6], 4)) - 1.93 * numpy.power(gnm[4], 3)
+    g5 = 40 - gnm[1] * gnm[2]
+    g6 = 12 - gnm[0] / gnm[1]
+    g7 = gnm[0] / gnm[1] - 5
+    g8 = gnm[3] - 1.5 * gnm[5] - 1.9
+    g9 = gnm[4] - 1.1 * gnm[6] - 1.9
+    g10 = 1300 - obj2
+    g11 = 110 * numpy.power(gnm[6], 3) - (numpy.sqrt(numpy.power((745 * gnm[4]) / (gnm[1] * gnm[2]), 2) + 1.275 * 1e8))
+    conresult = [g1, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11]
 
     ind.valConstr = conresult
     for i in conresult:

@@ -25,7 +25,7 @@ from hv import HyperVolume
 import functools
 
 # Problem size
-N = 4
+N = 6
 
 eps = 1e-5
 
@@ -52,18 +52,16 @@ def zdt1(LOWBOUNDS, UPBOUNDS, ind):
     gnm = numpy.array(gnm)
     obj1 = gnm[0]
     obj2 = numpy.power(1 - gnm[0], 2)
-    for i in range(1, N):
-        if i % 2 == 0:
-            obj1 += numpy.power(gnm[i] - 0.8 * gnm[0] * numpy.cos(6 * numpy.pi * gnm[0] + (numpy.pi * (i + 1)) / N), 2)
+    for i in range(1,N):
+        if i%2 == 0:
+            obj1 += 2 * numpy.power(gnm[i]-numpy.cos(6*numpy.pi*gnm[0]+(numpy.pi*(i+1))/N),2) - numpy.cos(4*numpy.pi*(gnm[i]-numpy.cos(6*numpy.pi*gnm[0]+(numpy.pi*(i+1))/N))) + 1
+        elif i == 1 or i == 3:
+            obj2 += numpy.power(gnm[i] - numpy.sin(6 * numpy.pi * gnm[0] + (numpy.pi * (i + 1)) / N), 2)
         else:
-            obj2 += numpy.power(gnm[i] - 0.8 * gnm[0] * numpy.sin(6 * numpy.pi * gnm[0] + (numpy.pi * (i + 1)) / N), 2)
+            obj2 += 2 * numpy.power(gnm[i]-numpy.sin(6*numpy.pi*gnm[0]+(numpy.pi*(i+1))/N),2) - numpy.cos(4*numpy.pi*(gnm[i]-numpy.sin(6*numpy.pi*gnm[0]+(numpy.pi*(i+1))/N))) + 1
     result = [obj1, obj2]
-    g1 = gnm[1] - 0.8 * gnm[0] * numpy.sin(6 * numpy.pi * gnm[0] + (numpy.pi * 2) / N) - numpy.sign(
-        0.5 * (1 - gnm[0]) - numpy.power(1 - gnm[0], 2)) * numpy.sqrt(
-        numpy.abs(0.5 * (1 - gnm[0]) - numpy.power(1 - gnm[0], 2)))
-    g2 = gnm[3] - 0.8 * gnm[0] * numpy.sin(6 * numpy.pi * gnm[0] + (numpy.pi * 4) / N) - numpy.sign(
-        0.25 * numpy.sqrt(1 - gnm[0]) - 0.5 * (1 - gnm[0])) * numpy.sqrt(
-        numpy.abs(0.25 * numpy.sqrt(1 - gnm[0]) - 0.5 * (1 - gnm[0])))
+    g1 = gnm[1] -numpy.sin(6*numpy.pi*gnm[0]+(numpy.pi*2)/N)-numpy.sign(0.5*(1-gnm[0])-numpy.power(1-gnm[0],2))*numpy.sqrt(numpy.abs(0.5*(1-gnm[0])-numpy.power(1-gnm[0],2)))
+    g2 = gnm[3] -numpy.sin(6*numpy.pi*gnm[0]+(numpy.pi*4)/N)-numpy.sign(0.25*numpy.sqrt(1-gnm[0])-0.5*(1-gnm[0]))*numpy.sqrt(numpy.abs(0.25*numpy.sqrt(1-gnm[0])-0.5*(1-gnm[0])))
     conresult = [g1, g2]
 
     ind.valConstr = conresult
@@ -157,7 +155,7 @@ def main():
         else:
             indlogs.append([genom, fit, 0, ind.valConstr, 0])
 
-    strategy = cma.NaturalStrategyMultiObjective(population, sigma=0.001, mu=MU, lambda_=LAMBDA)
+    strategy = cma.NaturalStrategyMultiObjective(population, sigma=0.01, mu=MU, lambda_=LAMBDA)
     toolbox.register("generate", strategy.generate, creator.Individual)
     toolbox.register("update", strategy.update)
     t0, h0 = recHV(population, ref)
