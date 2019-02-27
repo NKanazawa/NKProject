@@ -47,7 +47,7 @@ class NaturalStrategyMultiObjective(object):
         self.etaA = self.etasigma
         self.eps = numpy.sqrt(self.dim)*(1-1/(4*self.dim)+1/(21*numpy.power(self.dim,2)))
         self.infeasiblew = -0.01
-        self.gradextention = 5
+        self.gradextention = 3
 
         # ステップサイズ初期値
         self.initdomiSigmas = sigma
@@ -228,14 +228,17 @@ class NaturalStrategyMultiObjective(object):
         for ind in population:
             if ind.Rank < self.parents[ind._ps[1]].Rank and ind.Rank <= self.mu:
                 gm = numpy.outer(ind.theta, ind.theta) - numpy.identity(self.dim)
-                gsigma = numpy.trace(gm) / self.dim
+                gsigma = 0
+                if trace(gm) >= 0:
+                    count1 += 1
+                    gm = self.gradextention * gm
+                    gsigma = numpy.trace(gm) / self.dim
+                else:
+                    count2 += 1
+                    gsigma = numpy.trace(gm) / self.dim
                 ga = gm - gsigma * numpy.identity(self.dim)
                 proc = 0.5 * (self.etaA * ga)
                 GGA = scipy.linalg.expm(proc)
-                if gsigma > 0:
-                    count1 += 1
-                else:
-                    count2 += 1
                 if self.dominates(ind, self.parents[ind._ps[1]]):
                     count7 += 1
                     if self.parents[ind._ps[1]].oddoreven == 1:
@@ -262,8 +265,8 @@ class NaturalStrategyMultiObjective(object):
                         count5 += 1
                     else:
                         count6 += 1
-                        #gm = -gm
-                        #gsigma = -gsigma
+                        gm = -gm
+                        gsigma = -gsigma
                     ga = gm - gsigma * numpy.identity(self.dim)
                     proc = 0.5 * (self.etaA * ga)
                     GGA = scipy.linalg.expm(proc)
@@ -276,12 +279,13 @@ class NaturalStrategyMultiObjective(object):
                             self.parents[ind._ps[1]].dominateA = numpy.dot(self.parents[ind._ps[1]].dominateA, GGA)
                         if not self.parents[ind._ps[1]].madeinfeasible:
                             self.parents[ind._ps[1]].madeinfeasible = True
-                            self.parents[ind._ps[1]].phase = 1
             if self.parents[ind._ps[1]].madeinfeasible:
                 if self.parents[ind._ps[1]].oddoreven == 0:
                     self.parents[ind._ps[1]].oddoreven = 1
+                    self.parents[ind._ps[1]].phase = 1
                 else:
                     self.parents[ind._ps[1]].oddoreven = 0
+                    self.parents[ind._ps[1]].phase = 2
             else:
                 print(str(ind.Rank) + " and parent achieved " + str(self.parents[ind._ps[1]].Rank))
 

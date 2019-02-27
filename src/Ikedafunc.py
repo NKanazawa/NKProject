@@ -1,4 +1,3 @@
-
 import array
 import sys
 import random
@@ -26,55 +25,60 @@ from hv import HyperVolume
 import functools
 
 # Problem size
-N=2
+N = 3
 
-eps = 1e-5
+eps = 1e-8
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
 creator.create("Individual", list, fitness=creator.FitnessMin, volViolation=0, valConstr=None, volOverBounds=0,
-               isFeasible=True, dominateA=None,indicatorA=None, z=None, domisigma=None, indsigma=None,parent_genome=None, theta = numpy.zeros(N),parent_obj=None,parent_c=None,paretoRank = 0,madeinfeasible=False,oddoreven=1,phase=0)
+               isFeasible=True, dominateA=None,indicatorA=None, z=None, domisigma=None, indsigma=None,parent_genome=None, parent_obj=None,parent_c=None,paretoRank = 0,madeinfeasible=False,oddoreven=1)
 
 
-def zdt1(LOWBOUNDS,UPBOUNDS,ind):
+def zdt1(LOWBOUNDS, UPBOUNDS, ind):
     gnm = []
     conresult = []
     for i, num in enumerate(ind):
-        if num < LOWBOUNDS[i]-eps:
+        if num < LOWBOUNDS[i] - eps:
             gnm.append(LOWBOUNDS[i])
-            conresult.append(num - LOWBOUNDS[i])
-            ind.isFeasible = False
-        elif num > UPBOUNDS[i]+eps:
+            ind.volViolation += numpy.abs(num - LOWBOUNDS[i])
+        elif num > UPBOUNDS[i] + eps:
             gnm.append(UPBOUNDS[i])
-            conresult.append(UPBOUNDS[i] - num)
-            ind.isFeasible = False
+            ind.volViolation += numpy.abs(UPBOUNDS[i] - num)
         else:
-            gnm.append(num)
+            gnm.append((trueUP[i] - trueLOW[i]) * (num / subD) + trueLOW[i])
             conresult.append(numpy.minimum(num - LOWBOUNDS[i], UPBOUNDS[i] - num))
-        # gnm.append((UPBOUNDS[i] - LOWBOUNDS[i]) * (num / subD) + LOWBOUNDS[i])
     gnm = numpy.array(gnm)
-    result = []
-    result.append(gnm[0])
-    dgnm = gnm / (len(gnm) - 1)
-    g = 1 + 9 * numpy.sum(dgnm[1:])
-    h = 1 - numpy.sqrt(gnm[0] / g)
-    result.append(g * h)
+    obj1 = numpy.power(gnm[0], 2)
+    obj2 = numpy.power(1 - gnm[0], 2)
+    for i in range(1, len(gnm)):
+        obj1 += 100 * numpy.power(gnm[0] - gnm[i], 2)
+        obj2 += 100 * numpy.power(gnm[0] - gnm[i], 2)
+        conresult.append(gnm[0] - gnm[i])
+    result = [obj1, obj2]
     ind.valConstr = conresult
+
+    for i in conresult:
+        if i < 0:
+            ind.volViolation += abs(i)
     return result
+
 
 subD = 1
 toolbox = base.Toolbox()
 
+
 def loadBoundary():
-    data = numpy.loadtxt('boundary.csv',delimiter=',',dtype=float)
+    data = numpy.loadtxt('boundary.csv', delimiter=',', dtype=float)
     dlow = []
     dhigh = []
     for row in data:
         dlow.append(row[0])
         dhigh.append(row[1])
-    return dlow,dhigh
+    return dlow, dhigh
 
-def recHV(population,refs):
-    truefront = emo.selFinal(population,200)
+
+def recHV(population, refs):
+    truefront = emo.selFinal(population, 200)
     if len(truefront) == 1 and not truefront[0].isFeasible:
         return truefront, 0
     else:
@@ -82,10 +86,11 @@ def recHV(population,refs):
         tfPoint = []
         for i, ind in enumerate(dcfront):
             if not checkDuplication(ind, dcfront[:i]):
-                tfPoint.append([ind.fitness.values[0],ind.fitness.values[1]])
+                tfPoint.append([ind.fitness.values[0], ind.fitness.values[1]])
         hy = HyperVolume(refs)
         HV = hy.compute(tfPoint)
-        return truefront,HV
+        return truefront, HV
+
 
 def checkDuplication(ind, front):
     for prep in front:
@@ -99,132 +104,120 @@ def checkDuplication(ind, front):
 
 
 toolbox.register("evaluate", zdt1)
+
+
 def main():
-
     # The cma module uses the numpy random number generator
-
+    global trueUP,trueLOW
+    trueLOW,trueUP = loadBoundary()
     numpy.random.seed()
     LOWBOUNDS = numpy.zeros(N)
     UPBOUNDS = numpy.ones(N)
-    iniLOWBOUNDS = [0.1,1e-1]
-    iniUPBOUNDS  = [0.1,1e-1]
-    iniUPBOUNDS=numpy.array(iniUPBOUNDS)
-    MU, LAMBDA = 1, 1
+    MU, LAMBDA = 100, 100
 
-    NGEN = 2000
-    eval_log = numpy.empty((0,2) , float)
+    NGEN = 1000
+    eval_log = numpy.empty((0, 2), float)
     verbose = True
     create_plot = True
     indlogs = list()
     trueParetoLog = []
     allTF = []
     HVlog = []
-    ref = [1.0, 1.0]
+    ref = [1, 1]
     sigmas = []
     domiAses = []
     indAses = []
     detA = []
     sucrate = []
-    indfirst_pc=[]
-    domifirst_pc=[]
-    indAandC = []
+    indfirst_pc = []
+    domifirst_pc = []
 
     # The MO-CMA-ES algorithm takes a full population as argument
-    population = [creator.Individual(x) for x in (numpy.random.uniform(iniLOWBOUNDS, iniUPBOUNDS, (MU, N)))]
-    fitnesses = toolbox.map(functools.partial(toolbox.evaluate,LOWBOUNDS,UPBOUNDS), population)
+    population = [creator.Individual(x) for x in (numpy.random.uniform(LOWBOUNDS, UPBOUNDS, (MU, N)))]
+    fitnesses = toolbox.map(functools.partial(toolbox.evaluate, LOWBOUNDS, UPBOUNDS), population)
     for ind, fit in zip(population, fitnesses):
         ind.fitness.values = fit
-        for i, e in enumerate(ind):
-            if 0 > ind.valConstr[i]:
-                ind.volViolation += abs(ind.valConstr[i])
         if ind.volViolation > 0:
-            ind.fitness.values = (ind.fitness.values[0] + ind.volViolation*1000, ind.fitness.values[1] + ind.volViolation*1000)
+            ind.fitness.values = (ind.fitness.values[0] + ind.volViolation * 1000, ind.fitness.values[1] + ind.volViolation * 1000)
+            ind.isFeasible = False
         eval_log = numpy.append(eval_log, numpy.array([fit]), axis=0)
-        genom = [ind[i] for i in range(0,N)]
+        genom = [ind[i] for i in range(0, N)]
         if ind.isFeasible:
             indlogs.append([genom, fit, 1, ind.valConstr, 0])
         else:
             indlogs.append([genom, fit, 0, ind.valConstr, 0])
 
-    strategy = cma.NaturalStrategyMultiObjective(population, sigma=1e-3, mu=MU, lambda_=LAMBDA)
+    strategy = cma.NaturalStrategyMultiObjective(population, sigma=0.001, mu=MU, lambda_=LAMBDA)
     toolbox.register("generate", strategy.generate, creator.Individual)
     toolbox.register("update", strategy.update)
-    t0 ,h0 = recHV(population,ref)
+    t0, h0 = recHV(population, ref)
     trueParetoLog.append(t0)
     for ind in t0:
-        geno =[ind[i] for i in range(0,N)]
+        geno = [ind[i] for i in range(0, N)]
         if ind.isFeasible:
             allTF.append([geno, ind.fitness.values, 1, ind.valConstr, 0])
         else:
-            allTF.append([geno, ind.fitness.values, 0,ind.valConstr, 0])
+            allTF.append([geno, ind.fitness.values, 0, ind.valConstr, 0])
     HVlog.append(h0)
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("min", numpy.min, axis=0)
     stats.register("max", numpy.max, axis=0)
-
-   
 
     logbook = tools.Logbook()
 
     logbook.header = ["gen", "nevals"] + (stats.fields if stats else [])
     for gen in range(NGEN):
         # Generate a new population
+
         population1 = toolbox.generate()
         population = population1
 
         # Evaluate the individuals
-        fitnesses = toolbox.map(functools.partial(toolbox.evaluate,LOWBOUNDS,UPBOUNDS), population)
+        fitnesses = toolbox.map(functools.partial(toolbox.evaluate, LOWBOUNDS, UPBOUNDS), population)
         for ind, fit in zip(population, fitnesses):
             ind.fitness.values = fit
-            for i, e in enumerate(ind):
-                if 0 > ind.valConstr[i]:
-                    ind.volViolation += abs(ind.valConstr[i])
             if ind.volViolation > 0:
-                ind.fitness.values = (
-                ind.fitness.values[0] + ind.volViolation * 1000, ind.fitness.values[1] + ind.volViolation * 1000)
+                ind.fitness.values = (ind.fitness.values[0] + ind.volViolation * 1000, ind.fitness.values[1] + ind.volViolation * 1000)
                 ind.isFeasible = False
             eval_log = numpy.append(eval_log, numpy.array([fit]), axis=0)
             genom = [ind[i] for i in range(0, N)]
             if ind.isFeasible:
-                indlogs.append([genom, fit, 1,ind.valConstr, ind.parent_genome,ind.theta.tolist(),ind.parent_obj,gen])
+                indlogs.append([genom, fit, 1, ind.valConstr, ind.parent_genome, ind.parent_obj, gen])
             else:
-                indlogs.append([genom, fit, 0, ind.valConstr, ind.parent_genome,ind.theta.tolist(),ind.parent_obj,gen])
-        
+                indlogs.append([genom, fit, 0, ind.valConstr, ind.parent_genome, ind.parent_obj, gen])
+
         # Update the strategy with the evaluated individuals
         toolbox.update(population)
         dcparent = copy.deepcopy(strategy.parents)
-        dcparent = sorted(dcparent,key=lambda x:x[0])
-        parAL = [d[i] for i in range(N) for d in dcparent[-1].indicatorA.tolist()]
+        dcparent = sorted(dcparent, key=lambda x: x[0])
         domiC = numpy.dot(dcparent[-1].dominateA, dcparent[-1].dominateA.T)
         domia, domib = scipy.linalg.eigh(domiC)
         domia = domia.tolist()
         domiAses.append(domia)
         indC = numpy.dot(dcparent[-1].indicatorA, dcparent[-1].indicatorA.T)
-        indCL = [d[i] for i in range(N) for d in indC.tolist()]
         inda, indb = scipy.linalg.eigh(indC)
         inda = inda.tolist()
         indAses.append(inda)
-        domid = numpy.hstack((domib[:,0],domib[:,1]))
-        indd = numpy.hstack((indb[:,0],indb[:,1]))
+        domid = numpy.hstack((domib[:, 0], domib[:, 1]))
+        indd = numpy.hstack((indb[:, 0], indb[:, 1]))
         domifirst_pc.append(domid.tolist())
         indfirst_pc.append(indd.tolist())
-        parAL.extend(indCL)
-        theta = 0 if indCL[1]==0 else numpy.arctan((inda[-1] - indCL[0]) / indCL[1]) * 180/numpy.pi
-        parAL.append(theta)
-        indAandC.append(parAL)
         genSigma = []
-        genSigma.append([dcparent[-1].indsigma,dcparent[-1].domisigma])
-        #detA.append(scipy.linalg.det(dcparent[-1].A))
+        genSigma.append([dcparent[-1].indsigma, dcparent[-1].domisigma])
+        # detA.append(scipy.linalg.det(dcparent[-1].A))
         sigmas.append(genSigma)
-        sucrate.append([strategy.dominating_Success,strategy.success_outer,strategy.success,strategy.missed_both_alive_out,strategy.missed_both_alive_in, strategy.parentonly_alive_out,strategy.parentonly_alive_in,strategy.less_constraint,strategy.parents[-1].phase])
+        sucrate.append(
+            [strategy.dominating_Success, strategy.success_outer, strategy.success, strategy.missed_both_alive_out,
+             strategy.missed_both_alive_in, strategy.parentonly_alive_out, strategy.parentonly_alive_in,
+             strategy.less_constraint])
         tGen, hGen = recHV(strategy.parents, ref)
         trueParetoLog.append(tGen)
         for ind in tGen:
             geno = [ind[i] for i in range(0, N)]
             if ind.isFeasible:
-                allTF.append([geno, ind.fitness.values, 1, ind.valConstr,ind.parent_genome,ind.theta.tolist(),ind.parent_obj, gen + 1])
+                allTF.append([geno, ind.fitness.values, 1, ind.valConstr, ind.parent_genome, ind.parent_obj, gen + 1])
             else:
-                allTF.append([geno, ind.fitness.values, 0, ind.valConstr, ind.parent_genome,ind.theta.tolist(),ind.parent_obj,gen + 1])
+                allTF.append([geno, ind.fitness.values, 0, ind.valConstr, ind.parent_genome, ind.parent_obj, gen + 1])
         HVlog.append(hGen)
         record = stats.compile(population) if stats is not None else {}
         logbook.record(gen=gen, nevals=len(population), **record)
@@ -245,7 +238,9 @@ def main():
     trIndLog = transLogs(indlogs)
     df = pandas.DataFrame(trIndLog)
 
-    return trueParetoLog[-1], eval_log, df, HVlog, allTF, sigmas, domiAses,indAses,sucrate,domifirst_pc,indfirst_pc,detA,indAandC
+    return trueParetoLog[
+               -1], eval_log, df, HVlog, allTF, sigmas, domiAses, indAses, sucrate, domifirst_pc, indfirst_pc, detA
+
 
 def transLogs(logs):
     trdlogs = list()
@@ -260,13 +255,14 @@ def transLogs(logs):
         trdlogs.append(log)
     return trdlogs
 
+
 if __name__ == "__main__":
-    num_exc = 10
-    for reps in range(0,num_exc):
-        solutions, fitness_history, df, HVlog, tflog, siglog, domiAlog,indAlog,sucrate,domifirstPC,indfirstPC,detA,indAandC = main()
-        df.to_csv("MONES"+"%03.f"%(reps)+".csv")
+    num_exc = 40
+    for reps in range(0, num_exc):
+        solutions, fitness_history, df, HVlog, tflog, siglog, domiAlog, indAlog, sucrate, domifirstPC, indfirstPC, detA = main()
+        df.to_csv("MONES" + "%03.f" % (reps) + ".csv")
         dh = pandas.DataFrame(HVlog)
-        dh.to_csv("MONESHV"+"%03.f"%(reps)+".csv")
+        dh.to_csv("MONESHV" + "%03.f" % (reps) + ".csv")
         itlog = transLogs(tflog)
         dtr = pandas.DataFrame(itlog)
         dtr.to_csv("MONESTF" + "%03.f" % (reps) + ".csv")
@@ -290,25 +286,22 @@ if __name__ == "__main__":
         indttfpc.to_csv("NESindFirstPC" + "%03.f" % (reps) + ".csv")
         detAd = pandas.DataFrame(detA)
         detAd.to_csv("NESdetALog" + "%03.f" % (reps) + ".csv")
-        indAC = transLogs(indAandC)
-        indttAC = pandas.DataFrame(indAC)
-        indttAC.to_csv("NESindAandC" + "%03.f" % (reps) + ".csv")
 
         fig = plt.figure()
         plt.title("Multi-objective minimization via MO-NES")
         plt.xlabel("f1")
         plt.ylabel("f2")
         # Limit the scale because our history values include the penalty.
-        plt.xlim((0, 2))
-        plt.ylim((0, 2))
+        plt.xlim((0, 1))
+        plt.ylim((0, 1))
         plt.grid(True)
         # Plot all history. Note the values include the penalty.
         fitness_history = numpy.asarray(fitness_history)
-        plt.scatter(fitness_history[:,0], fitness_history[:,1],facecolors='none', edgecolors="lightblue",s=6)
+        plt.scatter(fitness_history[:, 0], fitness_history[:, 1], facecolors='none', edgecolors="lightblue", s=6)
         valid_front = numpy.array([ind.fitness.values for ind in solutions])
-        plt.scatter(valid_front[:,0], valid_front[:,1], c="g",s=6)
+        plt.scatter(valid_front[:, 0], valid_front[:, 1], c="g", s=6)
         print("Writing cma_mo.png")
-        plt.savefig("MONES"+"%03.f"%(reps)+".png", dpi=300)
+        plt.savefig("MONES" + "%03.f" % (reps) + ".png", dpi=300)
         plt.close(fig)
 
         hvfig = plt.figure()
@@ -317,9 +310,10 @@ if __name__ == "__main__":
         plt.ylabel("HV")
         plt.gca().get_xaxis().get_major_formatter().set_useOffset(False)
         plt.gca().get_xaxis().set_major_locator(ticker.MaxNLocator(integer=True))
-        plt.ylim((0,1))
-        GEN = numpy.array([i for i in range(1,len(HVlog)+1)])
-        plt.plot(GEN,HVlog)
+        plt.xlim((1, 2000))
+        plt.ylim((0, 1))
+        GEN = numpy.array([i for i in range(1, len(HVlog) + 1)])
+        plt.plot(GEN, HVlog)
         plt.grid(True)
         plt.savefig("MONESHV" + "%03.f" % (reps) + ".png", dpi=300)
         plt.close(hvfig)
